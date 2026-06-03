@@ -1,1 +1,78 @@
+const PRIORITY_WEIGHTS = {
+  placement: 3,
+  reult: 2,
+  result: 2,
+  event: 1,
+};
+
+function getNotificationTypeKey(notification) {
+  if (!notification || typeof notification.type !== 'string') {
+    return '';
+  }
+
+  return notification.type.trim().toLowerCase();
+}
+
+function getNotificationWeight(notification) {
+  const typeKey = getNotificationTypeKey(notification);
+  return PRIORITY_WEIGHTS[typeKey] ?? 0;
+}
+
+function getNotificationTimestamp(notification) {
+  if (!notification) {
+    return 0;
+  }
+
+  const timestampValue = notification.createdAt ?? notification.timestamp ?? notification.time;
+  if (!timestampValue) {
+    return 0;
+  }
+
+  const parsed = Date.parse(timestampValue);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function isUnread(notification) {
+  if (!notification) {
+    return false;
+  }
+
+  return !(notification.read ?? notification.isRead ?? false);
+}
+
+function getPriorityScore(notification, nowMs = Date.now()) {
+  const weight = getNotificationWeight(notification);
+  const timestamp = getNotificationTimestamp(notification);
+
+  const recencyScore = timestamp > 0 ? Math.max(0, 1 - (nowMs - timestamp) / (1000 * 60 * 60 * 24)) : 0;
+  return weight * 100 + recencyScore;
+}
+
+function selectPriorityInbox(notifications, n = 10) {
+  if (!Array.isArray(notifications)) {
+    return [];
+  }
+
+  const nowMs = Date.now();
+
+  return notifications
+    .filter(isUnread)
+    .sort((a, b) => {
+      const scoreA = getPriorityScore(a, nowMs);
+      const scoreB = getPriorityScore(b, nowMs);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+
+      return getNotificationTimestamp(b) - getNotificationTimestamp(a);
+    })
+    .slice(0, n);
+}
+
+// Usage example:
+// const topInbox = selectPriorityInbox(allNotifications, 10);
+// render topInbox first in the UI.
+
+export { selectPriorityInbox };
 
